@@ -80,22 +80,67 @@ S_repo ≈ κ × [ P × (1/DR) + Δ × (N_eff − 1 + L_snap + L_imm) ] × (1 + 
 
 ## 3. Build the Docker image
 
+The `build-push.sh` script works with **any** container registry. Pass the full image name
+(without tag) as the `IMAGE` environment variable or as the second positional argument.
+
 ```bash
 # Clone the repository
 git clone https://github.com/<your-org>/kasten-sizing-tool.git
 cd kasten-sizing-tool
+```
 
-# Build and push — edit REGISTRY and TAG as needed
-REGISTRY="your-registry.example.com/library"
-IMAGE="${REGISTRY}/kasten-sizing-tool"
+### Docker Hub
+
+```bash
+IMAGE=docker.io/myorg/kasten-sizing-tool ./build-push.sh latest
+```
+
+### GitHub Container Registry
+
+```bash
+echo $CR_PAT | docker login ghcr.io -u <github-username> --password-stdin
+IMAGE=ghcr.io/myorg/kasten-sizing-tool ./build-push.sh latest
+```
+
+### AWS ECR
+
+```bash
+aws ecr get-login-password --region eu-west-1 \
+  | docker login --username AWS --password-stdin \
+      123456789.dkr.ecr.eu-west-1.amazonaws.com
+
+IMAGE=123456789.dkr.ecr.eu-west-1.amazonaws.com/kasten-sizing-tool \
+  ./build-push.sh latest
+```
+
+### Azure Container Registry
+
+```bash
+az acr login --name myacr
+IMAGE=myacr.azurecr.io/kasten-sizing-tool ./build-push.sh latest
+```
+
+### Private registry (Harbor, Nexus, etc.)
+
+```bash
+docker login registry.example.com
+IMAGE=registry.example.com/library/kasten-sizing-tool ./build-push.sh latest
+```
+
+### Manual build without the script
+
+```bash
 TAG="latest"
+IMAGE="docker.io/myorg/kasten-sizing-tool"
 
 docker build -t "${IMAGE}:${TAG}" .
 docker push "${IMAGE}:${TAG}"
 ```
 
-> The provided `build-push.sh` script is pre-configured for a private Harbor registry.
-> Edit `REGISTRY` at the top of the script before using it.
+> After building, **update `sizing-tool.yaml`** to reference your image:
+> ```yaml
+> image: docker.io/myorg/kasten-sizing-tool:latest
+> ```
 
 ---
 

@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sizing-tool
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sizing-tool
+  namespace: sizing-tool
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sizing-tool
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sizing-tool
+subjects:
+- kind: ServiceAccount
+  name: sizing-tool
+  namespace: sizing-tool
+roleRef:
+  kind: ClusterRole
+  name: sizing-tool
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sizing-tool
+  namespace: sizing-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sizing-tool
+  template:
+    metadata:
+      labels:
+        app: sizing-tool
+    spec:
+      serviceAccountName: sizing-tool
+      containers:
+        - name: sizing-tool
+          image: 192.168.1.206/library/sizing-tool:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sizing-tool
+  namespace: sizing-tool
+  annotations:
+    metallb.io/loadBalancerIPs: "192.168.1.209"
+spec:
+  selector:
+    app: sizing-tool
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: LoadBalancer

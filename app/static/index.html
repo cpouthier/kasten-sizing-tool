@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veeam Kasten Sizing Calculator</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ════ THEME VARIABLES ════ */
+[data-theme="dark"]{
+  --bg:#141720;--surface:#1e2232;--surface2:#262b3d;--surface3:#2e3448;
+  --border:rgba(255,255,255,0.10);--text:#dde3ef;--muted:#8e96b0;
+  --input-bg:#262b3d;--input-border:rgba(255,255,255,0.14);
+  --accent:#7c3aed;--accent-l:#a78bfa;--accent-bg:rgba(124,58,237,0.15);
+  --accent-border:rgba(124,58,237,0.35);
+  --success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--info:#38bdf8;
+  --code-color:#c4b5fd;--total-row-bg:rgba(124,58,237,0.12);
+  --theme-icon-show:#sun;
+}
+[data-theme="light"]{
+  --bg:#f0f4f8;--surface:#ffffff;--surface2:#f5f7fb;--surface3:#eaeef5;
+  --border:rgba(0,0,0,0.09);--text:#1e293b;--muted:#5e7191;
+  --input-bg:#ffffff;--input-border:rgba(0,0,0,0.14);
+  --accent:#6d28d9;--accent-l:#7c3aed;--accent-bg:rgba(109,40,217,0.08);
+  --accent-border:rgba(109,40,217,0.28);
+  --success:#16a34a;--warn:#d97706;--danger:#dc2626;--info:#0284c7;
+  --code-color:#6d28d9;--total-row-bg:rgba(109,40,217,0.07);
+  --theme-icon-show:#moon;
+}
+
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column;font-size:14px;overflow:hidden;
+  transition:background .2s,color .2s;}
+
+/* ── Topbar ── */
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;}
+.logo-icon{width:28px;height:28px;flex-shrink:0;}
+.logo-text{font-weight:700;font-size:1rem;letter-spacing:-.2px;}
+.logo-text em{color:var(--accent-l);font-style:normal;}
+.spacer{flex:1;}
+.badge{font-size:.68rem;padding:2px 8px;border-radius:99px;background:var(--accent-bg);
+  color:var(--accent-l);border:1px solid var(--accent-border);font-weight:600;}
+.theme-btn{background:none;border:1px solid var(--border);border-radius:7px;
+  padding:5px 8px;cursor:pointer;color:var(--muted);display:flex;align-items:center;
+  gap:5px;font-size:.78rem;transition:all .15s;}
+.theme-btn:hover{background:var(--surface2);color:var(--text);}
+.theme-btn svg{width:15px;height:15px;flex-shrink:0;}
+
+/* ── Tab bar ── */
+.tabbar{height:42px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-end;padding:0 0 0 20px;flex-shrink:0;gap:2px;}
+.tab{padding:8px 16px;font-size:.82rem;font-weight:500;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent-l);border-bottom-color:var(--accent);}
+
+/* ── Legal disclaimer banner ── */
+.legal-banner{background:rgba(245,158,11,.09);border-bottom:1px solid rgba(245,158,11,.25);
+  padding:6px 20px;display:flex;align-items:center;gap:8px;font-size:.72rem;
+  color:var(--warn);flex-shrink:0;line-height:1.4;}
+.legal-banner svg{flex-shrink:0;}
+
+/* ── Layout ── */
+.page{display:flex;flex:1;overflow:hidden;}
+.col-policy{width:336px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:16px;}
+.col-content{flex:1;overflow-y:auto;}
+
+/* ── Section headers ── */
+.section{margin-bottom:16px;}
+.section-title{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--muted);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+
+/* ── Form fields ── */
+.field{margin-bottom:9px;}
+.field label{display:block;font-size:.76rem;color:var(--muted);margin-bottom:3px;}
+.field label span{float:right;font-size:.66rem;color:var(--accent-l);}
+input[type=number],select{
+  width:100%;padding:6px 9px;background:var(--input-bg);border:1px solid var(--input-border);
+  border-radius:6px;color:var(--text);font-size:.82rem;outline:none;transition:border .15s,background .2s;}
+input[type=number]:focus,select:focus{border-color:var(--accent);}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+select option{background:var(--surface2);}
+
+/* ── Retention grid — fixed-height labels so inputs always align ── */
+.ret-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+.ret-field{display:flex;flex-direction:column;}
+.ret-label{height:34px;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-end;gap:1px;margin-bottom:5px;}
+.ret-label .ret-word{font-size:.6rem;color:var(--muted);line-height:1.1;text-align:center;}
+.ret-label .ret-key{font-size:.82rem;font-weight:700;color:var(--text);}
+.ret-field input{text-align:center;padding:6px 3px;}
+
+/* ── Tab panels ── */
+.tab-panel{display:none;padding:18px 20px 28px;}
+.tab-panel.active{display:block;}
+
+/* ── Per-namespace note ── */
+.ns-note{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:8px;
+  padding:10px 14px;margin-bottom:16px;font-size:.78rem;color:var(--accent-l);line-height:1.5;}
+.ns-note strong{color:var(--accent-l);font-weight:700;}
+
+/* ── Result highlight cards ── */
+.results-main{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.card-highlight{grid-column:1/-1;background:var(--accent-bg);border:1px solid var(--accent-border);
+  border-radius:10px;padding:14px 20px;display:flex;gap:24px;}
+.card-highlight .kv{flex:1;text-align:center;}
+.card-highlight .kv .lbl{font-size:.68rem;color:var(--accent-l);font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.card-highlight .kv .val{font-size:1.85rem;font-weight:700;color:var(--code-color);
+  font-variant-numeric:tabular-nums;line-height:1;}
+.card-highlight .kv .unit{font-size:.74rem;color:var(--accent-l);margin-top:4px;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;}
+.card .c-label{font-size:.63rem;color:var(--muted);font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:4px;}
+.card .c-val{font-size:1.1rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.card .c-unit{font-size:.7rem;color:var(--muted);}
+.card.info .c-val{color:var(--info);}
+.card.cost .c-val{color:var(--warn);}
+
+/* ── Intermediates ── */
+.intermediates{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;margin-bottom:16px;}
+.int-title{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:9px;}
+.int-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+.int-row{display:flex;justify-content:space-between;align-items:center;
+  padding:4px 0;border-bottom:1px solid var(--border);font-size:.77rem;}
+.int-row:last-child{border-bottom:none;}
+.int-row .name{color:var(--muted);}
+.int-row .value{font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);}
+
+/* ── Formula box ── */
+.formula-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;margin-bottom:14px;}
+.formula-box .f-title{font-size:.63rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);margin-bottom:7px;}
+.formula-box .f-eq{font-family:'Courier New',monospace;font-size:.76rem;color:var(--code-color);
+  background:var(--surface2);padding:8px 12px;border-radius:6px;word-break:break-all;
+  border:1px solid var(--accent-border);}
+.formula-box .f-syms{margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;}
+.formula-box .sym{font-size:.7rem;color:var(--muted);padding:2px 0;}
+.formula-box .sym code{color:var(--accent-l);font-size:.68rem;}
+
+/* ── Reference tables ── */
+.ref-title{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--muted);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.ref-tables{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.ref-table{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.ref-table-title{font-size:.7rem;font-weight:700;padding:7px 11px;background:var(--surface2);
+  border-bottom:1px solid var(--border);}
+.ref-table table{width:100%;border-collapse:collapse;}
+.ref-table th{font-size:.59rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);padding:5px 9px;text-align:left;border-bottom:1px solid var(--border);}
+.ref-table td{font-size:.7rem;padding:4px 9px;border-bottom:1px solid var(--border);}
+.ref-table tr:last-child td{border-bottom:none;}
+.ref-table td:last-child{color:var(--muted);}
+
+/* ── Disclaimer ── */
+.disclaimer{font-size:.7rem;color:var(--muted);font-style:italic;background:var(--surface2);
+  border-radius:6px;padding:8px 12px;border-left:3px solid var(--accent-border);}
+
+/* ══════════════════════ CLUSTER SCAN TAB ══════════════════════ */
+.scan-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.btn{padding:7px 15px;border:none;border-radius:7px;font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.88;}
+.btn-primary:disabled{background:var(--surface3);color:var(--muted);cursor:not-allowed;}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--surface3);}
+.scan-status{font-size:.77rem;color:var(--muted);}
+.scan-status.ok{color:var(--success);}
+.scan-status.err{color:var(--danger);}
+.scan-status.loading{color:var(--warn);}
+
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.filter-bar label{font-size:.76rem;color:var(--muted);display:flex;align-items:center;
+  gap:5px;cursor:pointer;user-select:none;}
+.ns-search{flex:1;min-width:150px;padding:5px 10px;background:var(--input-bg);
+  border:1px solid var(--input-border);border-radius:6px;color:var(--text);
+  font-size:.8rem;outline:none;transition:border .15s;}
+.ns-search:focus{border-color:var(--accent);}
+.ns-search::placeholder{color:var(--muted);}
+input[type=checkbox]{accent-color:var(--accent);cursor:pointer;width:14px;height:14px;flex-shrink:0;}
+
+/* Namespace table */
+.ns-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  overflow:hidden;margin-bottom:16px;}
+.ns-tbl{width:100%;border-collapse:collapse;}
+.ns-tbl th{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);
+  background:var(--surface2);white-space:nowrap;}
+.ns-tbl th.r,.ns-tbl td.r{text-align:right;}
+.ns-tbl th.c,.ns-tbl td.c{text-align:center;}
+.ns-tbl td{padding:7px 12px;border-bottom:1px solid var(--border);font-size:.8rem;
+  vertical-align:middle;}
+.ns-tbl tr:last-child>td{border-bottom:none;}
+.ns-tbl tr.ns-row:hover>td{background:var(--surface2);}
+
+.ns-phase{font-size:.64rem;padding:2px 7px;border-radius:4px;font-weight:700;}
+.ns-phase.active{background:rgba(34,197,94,.14);color:var(--success);}
+.ns-phase.terminating{background:rgba(239,68,68,.14);color:var(--danger);}
+
+/* Expand toggle */
+.expand-btn{background:none;border:none;color:var(--muted);cursor:pointer;
+  padding:2px 6px;border-radius:4px;font-size:.78rem;transition:all .15s;margin-right:4px;}
+.expand-btn:hover{background:var(--surface3);color:var(--text);}
+
+/* PVC detail sub-rows */
+.pvc-detail-row>td{padding:0!important;background:var(--surface2)!important;}
+.pvc-inner{display:none;padding:6px 12px 8px 36px;}
+.pvc-inner.open{display:block;}
+.pvc-sub-tbl{width:100%;border-collapse:collapse;}
+.pvc-sub-tbl th{font-size:.59rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);padding:3px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.pvc-sub-tbl th.r{text-align:right;}
+.pvc-sub-tbl td{padding:4px 8px;font-size:.75rem;border-bottom:1px solid var(--border);}
+.pvc-sub-tbl tr:last-child td{border-bottom:none;}
+.pvc-sub-tbl td.r{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+.partial-badge{font-size:.62rem;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;
+  background:rgba(245,158,11,.14);color:var(--warn);}
+.empty-ns{text-align:center;padding:30px;color:var(--muted);font-size:.8rem;}
+
+/* Aggregate summary cards */
+.agg-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.agg-card{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:8px;
+  padding:12px 16px;text-align:center;}
+.agg-card .ac-label{font-size:.64rem;color:var(--accent-l);font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.agg-card .ac-val{font-size:1.5rem;font-weight:700;color:var(--code-color);
+  font-variant-numeric:tabular-nums;}
+.agg-card .ac-unit{font-size:.72rem;color:var(--accent-l);margin-top:3px;}
+.agg-card.cost .ac-val{color:var(--warn);}
+
+/* Aggregate table */
+.agg-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  overflow:hidden;margin-bottom:14px;}
+.agg-tbl{width:100%;border-collapse:collapse;}
+.agg-tbl th{font-size:.61rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--muted);padding:7px 12px;border-bottom:1px solid var(--border);
+  background:var(--surface2);text-align:right;white-space:nowrap;}
+.agg-tbl th:first-child{text-align:left;}
+.agg-tbl td{padding:6px 12px;border-bottom:1px solid var(--border);
+  font-size:.78rem;text-align:right;font-variant-numeric:tabular-nums;}
+.agg-tbl td:first-child{text-align:left;color:var(--text);}
+.agg-tbl tr:last-child td{border-bottom:none;}
+.agg-tbl tr.total-row td{font-weight:700;color:var(--code-color);
+  background:var(--total-row-bg);border-top:1px solid var(--accent-border);}
+.agg-tbl tr.total-row td:first-child{color:var(--code-color);}
+
+.no-selection{text-align:center;padding:28px;color:var(--muted);font-size:.82rem;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;}
+
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(124,58,237,.25);
+  border-top-color:var(--accent-l);border-radius:50%;animation:spin .6s linear infinite;
+  vertical-align:middle;margin-right:5px;}
+
+/* ══════════════════ COMPOSITION BAR ══════════════════ */
+.comp-bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;margin-bottom:14px;}
+.comp-bar-title{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:8px;}
+.comp-bar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.78rem;}
+.comp-bar-header .comp-total{font-weight:700;color:var(--text);}
+.comp-bar-header .comp-sub{color:var(--muted);}
+.comp-bar{height:34px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:10px;}
+.comp-seg{display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-size:.68rem;font-weight:700;color:#fff;white-space:nowrap;padding:0 5px;min-width:0;
+  transition:flex .3s;}
+.comp-legend{display:flex;flex-wrap:wrap;gap:8px 16px;}
+.comp-legend-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);}
+.comp-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+/* ══════════════════ CAPACITY PLANNING MODAL ══════════════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;
+  align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px 22px;width:min(780px,96vw);max-height:90vh;overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.modal-title{font-size:.95rem;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;
+  padding:2px 8px;border-radius:5px;transition:all .15s;line-height:1;}
+.modal-close:hover{background:var(--surface2);color:var(--text);}
+#cap-chart-container svg{display:block;width:100%;height:auto;}
+
+/* ══════════════════ PRINT / PDF REPORT ══════════════════ */
+#report-container{display:none;}
+
+@media print{
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;
+    font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;}
+  .topbar,.tabbar,.page{display:none!important;}
+  #report-container{display:block!important;}
+
+  @page{margin:16mm 18mm 16mm 18mm;size:A4;}
+
+  /* ── Report layout ── */
+  .rpt-header{display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2.5pt solid #6d28d9;padding-bottom:10pt;margin-bottom:14pt;}
+  .rpt-logo{font-size:15pt;font-weight:700;color:#6d28d9;}
+  .rpt-logo span{color:#1e293b;}
+  .rpt-date{font-size:8.5pt;color:#64748b;text-align:right;line-height:1.5;}
+
+  .rpt-section{margin-bottom:14pt;page-break-inside:avoid;}
+  .rpt-section-title{font-size:10.5pt;font-weight:700;color:#6d28d9;text-transform:uppercase;
+    letter-spacing:.05em;border-bottom:1pt solid #e2e8f0;padding-bottom:4pt;margin-bottom:8pt;}
+
+  /* Policy table */
+  .rpt-policy-tbl{width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:6pt;}
+  .rpt-policy-tbl td{padding:3pt 8pt;border-bottom:1pt solid #f1f5f9;vertical-align:top;}
+  .rpt-policy-tbl td:first-child{color:#64748b;width:200pt;font-weight:500;}
+  .rpt-policy-tbl td:last-child{font-weight:600;color:#1e293b;}
+  .rpt-policy-tbl tr:last-child td{border-bottom:none;}
+
+  /* Namespace block */
+  .rpt-ns{margin-bottom:12pt;page-break-inside:avoid;}
+  .rpt-ns-title{font-size:9.5pt;font-weight:700;background:#f1f5f9;padding:4pt 8pt;
+    border-left:3pt solid #6d28d9;margin-bottom:5pt;}
+  .rpt-tbl{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:5pt;}
+  .rpt-tbl th{background:#f8fafc;border:1pt solid #e2e8f0;padding:3.5pt 7pt;text-align:left;
+    font-weight:700;color:#475569;font-size:7.5pt;text-transform:uppercase;white-space:nowrap;}
+  .rpt-tbl th.r,.rpt-tbl td.r{text-align:right;}
+  .rpt-tbl td{border:1pt solid #e2e8f0;padding:3.5pt 7pt;}
+  .rpt-tbl tr:nth-child(even) td{background:#fafafa;}
+  .rpt-ns-result{font-size:8.5pt;color:#475569;margin-top:3pt;}
+  .rpt-ns-result strong{color:#1e293b;}
+
+  /* Summary box */
+  .rpt-summary{border:2pt solid #6d28d9;border-radius:5pt;padding:10pt 14pt;background:#faf5ff;}
+  .rpt-sum-row{display:flex;justify-content:space-between;padding:3pt 0;
+    border-bottom:1pt solid #e9d5ff;font-size:9pt;}
+  .rpt-sum-row:last-child{border-bottom:none;}
+  .rpt-sum-row .k{color:#64748b;}
+  .rpt-sum-row .v{font-weight:700;color:#4c1d95;}
+  .rpt-highlight{font-size:14pt;font-weight:700;color:#6d28d9;padding:6pt 0 4pt;}
+  .rpt-spacer{height:6pt;}
+
+  .rpt-disclaimer{font-size:7.5pt;color:#64748b;font-style:italic;
+    border-top:1pt solid #e2e8f0;padding-top:7pt;margin-top:14pt;line-height:1.6;}
+  .rpt-disclaimer strong{color:#1e293b;font-style:normal;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ TOPBAR ═══════════════════ -->
+<div class="topbar">
+  <svg class="logo-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="8" fill="#6d28d9"/>
+    <rect x="6" y="8" width="20" height="3" rx="1.5" fill="white" opacity="0.9"/>
+    <rect x="6" y="13" width="14" height="2" rx="1" fill="white" opacity="0.6"/>
+    <rect x="6" y="17" width="11" height="2" rx="1" fill="white" opacity="0.6"/>
+    <rect x="6" y="21" width="16" height="2" rx="1" fill="white" opacity="0.6"/>
+    <circle cx="24" cy="22" r="5" fill="#a78bfa"/>
+    <rect x="23" y="19" width="2" height="6" rx="1" fill="white"/>
+    <rect x="21" y="21" width="6" height="2" rx="1" fill="white"/>
+  </svg>
+  <span class="logo-text">Veeam Kasten <em>Sizing Calculator</em></span>
+  <div class="spacer"></div>
+  <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light / dark mode">
+    <!-- Sun icon (shown in dark mode) -->
+    <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/>
+      <line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/>
+      <line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <!-- Moon icon (shown in light mode) -->
+    <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+    <span id="theme-label">Light</span>
+  </button>
+</div>
+
+<!-- ═══════════════════ TAB BAR ═══════════════════ -->
+<div class="tabbar">
+  <div class="tab" id="tab-manual" onclick="switchTab('manual')">Manual Calculator</div>
+  <div class="tab active" id="tab-cluster" onclick="switchTab('cluster')">Cluster Scan</div>
+</div>
+
+<div class="legal-banner">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+  <span>
+    <strong>Estimation only.</strong>
+    Results are directional guidance based on the inputs provided and standard Kopia repository modelling assumptions.
+    They do not constitute a commitment, guarantee, or contractual obligation of any kind by Veeam Software.
+    Actual repository size may differ significantly depending on workload characteristics, data change patterns, and Kopia maintenance behaviour.
+  </span>
+</div>
+
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════
+       SHARED POLICY PANEL
+  ════════════════════════════════════════════ -->
+  <div class="col-policy">
+    <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+      color:var(--accent-l);margin-bottom:10px;padding-bottom:6px;
+      border-bottom:1px solid var(--accent-border);">Backup Policy Parameters</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+      Change rate, retention, and immutability apply to <em>all</em> PVCs.
+      In the Cluster Scan tab, compressibility and deduplication ratio are set per PVC via workload type.
+    </div>
+
+    <div class="section">
+      <div class="section-title">Backup Schedule</div>
+      <div class="field">
+        <label>Backup cadence</label>
+        <select id="inp_cadence" onchange="onPolicyChange()">
+          <option value="daily">Daily (1×/day)</option>
+          <option value="2x_daily">Twice daily (2×/day)</option>
+          <option value="4x_daily">4× daily</option>
+          <option value="hourly">Hourly (24×/day)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Change Rate</div>
+      <div class="field">
+        <label>Basis</label>
+        <select id="inp_basis" onchange="toggleBasis()">
+          <option value="per_day">Per day</option>
+          <option value="per_backup">Per backup</option>
+        </select>
+      </div>
+      <div class="field" id="field_rate_day">
+        <label>Rate per day <span>e.g. 0.1 = 10%</span></label>
+        <input type="number" id="inp_rate_day" value="0.1" min="0" max="1" step="0.01" oninput="onPolicyChange()">
+      </div>
+      <div class="field" id="field_rate_backup" style="display:none">
+        <label>Rate per backup <span>e.g. 0.05 = 5%</span></label>
+        <input type="number" id="inp_rate_backup" value="0.05" min="0" max="1" step="0.01" oninput="onPolicyChange()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Workload Type <span style="font-size:.58rem;color:var(--accent-l);font-weight:600;text-transform:none;letter-spacing:0">(Manual tab only)</span></div>
+      <div class="field">
+        <label>Compressibility c <span>0=none · 0.5=50%</span></label>
+        <input type="number" id="inp_c" value="0.1" min="0" max="1" step="0.01" oninput="onPolicyChange()">
+      </div>
+      <div class="field">
+        <label>Deduplication ratio DR <span>1.0=none · 1.5=33%</span></label>
+        <input type="number" id="inp_dr" value="1.1" min="1" step="0.1" oninput="onPolicyChange()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Retention Policy</div>
+      <div class="ret-grid">
+        <div class="ret-field">
+          <div class="ret-label"><span class="ret-word">Hourly</span><span class="ret-key">H</span></div>
+          <input type="number" id="inp_H" value="0" min="0" oninput="onPolicyChange()">
+        </div>
+        <div class="ret-field">
+          <div class="ret-label"><span class="ret-word">Daily</span><span class="ret-key">D</span></div>
+          <input type="number" id="inp_D" value="7" min="0" oninput="onPolicyChange()">
+        </div>
+        <div class="ret-field">
+          <div class="ret-label"><span class="ret-word">Weekly</span><span class="ret-key">W</span></div>
+          <input type="number" id="inp_W" value="0" min="0" oninput="onPolicyChange()">
+        </div>
+        <div class="ret-field">
+          <div class="ret-label"><span class="ret-word">Monthly</span><span class="ret-key">M</span></div>
+          <input type="number" id="inp_M" value="0" min="0" oninput="onPolicyChange()">
+        </div>
+        <div class="ret-field">
+          <div class="ret-label"><span class="ret-word">Yearly</span><span class="ret-key">Y</span></div>
+          <input type="number" id="inp_Y" value="0" min="0" oninput="onPolicyChange()">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Advanced</div>
+      <div class="field">
+        <label>Immutability period (days) <span>+20d added by Kasten</span></label>
+        <input type="number" id="inp_imm" value="90" min="0" oninput="onPolicyChange()">
+      </div>
+      <div class="field">
+        <label>Number of files (optional) <span>0 for block volumes</span></label>
+        <input type="number" id="inp_nfiles" value="0" min="0" step="1000" oninput="onPolicyChange()">
+      </div>
+      <div class="field">
+        <label>Index overhead m_index</label>
+        <div style="padding:6px 9px;background:var(--surface3);border:1px solid var(--border);
+          border-radius:6px;font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;">
+          <span>0.01</span><span style="font-size:.72rem">fixed — 1%</span>
+        </div>
+        <input type="hidden" id="inp_mindex" value="0.01">
+      </div>
+      <div class="field">
+        <label>Compaction buffer ε</label>
+        <div style="padding:6px 9px;background:var(--surface3);border:1px solid var(--border);
+          border-radius:6px;font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;">
+          <span>0.05</span><span style="font-size:.72rem">fixed — 5%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Operational headroom <span>0.1 = 10% extra</span></label>
+        <input type="number" id="inp_headroom" value="0.1" min="0" max="1" step="0.05" oninput="onPolicyChange()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Cost</div>
+      <div class="field">
+        <label>Storage cost / GiB / month ($)</label>
+        <input type="number" id="inp_cost" value="0.02" min="0" step="0.001" oninput="onPolicyChange()">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB CONTENT AREA
+  ════════════════════════════════════════════ -->
+  <div class="col-content">
+
+    <!-- ─────────── MANUAL TAB ─────────── -->
+    <div class="tab-panel" id="panel-manual">
+
+      <div class="ns-note">
+        <strong>Per-namespace calculation.</strong>
+        This calculator estimates the Kopia repository capacity required to protect
+        <strong>one namespace</strong>. Repeat for each namespace you plan to protect
+        and sum the results — or use the <strong>Cluster Scan</strong> tab to do this automatically.
+      </div>
+
+      <div class="section">
+        <div class="section-title">Primary Data (this namespace)</div>
+        <div class="field" style="max-width:340px">
+          <label>Total PVC capacity across protected namespace (GiB) <span>P</span></label>
+          <input type="number" id="inp_P" value="100" min="0" step="1" oninput="calcManual()">
+        </div>
+      </div>
+
+      <!-- Highlighted results -->
+      <div class="results-main">
+        <div class="card-highlight">
+          <div class="kv">
+            <div class="lbl">Recommended capacity with headroom</div>
+            <div class="val" id="res_rec_gib">—</div>
+            <div class="unit">GiB · this namespace</div>
+          </div>
+          <div class="kv">
+            <div class="lbl">Recommended capacity</div>
+            <div class="val" id="res_rec_tib">—</div>
+            <div class="unit">TiB · this namespace</div>
+          </div>
+        </div>
+        <div class="card info">
+          <div class="c-label">Repository size (S_repo)</div>
+          <div class="c-val"><span id="res_srepo_gib">—</span> <span class="c-unit">GiB</span></div>
+          <div style="margin-top:3px;font-size:.88rem">
+            <span class="c-val" id="res_srepo_tib" style="font-size:.9rem">—</span>
+            <span class="c-unit"> TiB</span>
+          </div>
+        </div>
+        <div class="card cost">
+          <div class="c-label">Storage cost / month</div>
+          <div class="c-val">$<span id="res_cost_month">—</span></div>
+          <div style="margin-top:3px;font-size:.88rem">
+            <span class="c-label">/ year  </span>
+            <span class="c-val" style="font-size:.9rem">$<span id="res_cost_year">—</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Intermediates -->
+      <div class="intermediates">
+        <div class="int-title">Calculation steps</div>
+        <div class="int-grid">
+          <div class="int-row"><span class="name">Backups per day (f)</span><span class="value" id="r_f">—</span></div>
+          <div class="int-row"><span class="name">Eff. change per backup (r)</span><span class="value" id="r_r">—</span></div>
+          <div class="int-row"><span class="name">κ = 1 − c</span><span class="value" id="r_kappa">—</span></div>
+          <div class="int-row"><span class="name">N_raw = H+D+W+M+Y</span><span class="value" id="r_nraw">—</span></div>
+          <div class="int-row"><span class="name">Overlap O (active tier transitions)</span><span class="value" id="r_o">—</span></div>
+          <div class="int-row"><span class="name">N_eff = MAX(1, N_raw − O)</span><span class="value" id="r_neff">—</span></div>
+          <div class="int-row"><span class="name">Δ per snapshot (GiB)</span><span class="value" id="r_delta">—</span></div>
+          <div class="int-row"><span class="name">L_snap (GC buffer)</span><span class="value" id="r_lsnap">—</span></div>
+          <div class="int-row"><span class="name">L_imm (immutability)</span><span class="value" id="r_limm">—</span></div>
+          <div class="int-row"><span class="name">m_files (small-file overhead)</span><span class="value" id="r_mfiles">—</span></div>
+          <div class="int-row"><span class="name">m (total metadata)</span><span class="value" id="r_m">—</span></div>
+          <div class="int-row"><span class="name">Base unique (GiB)</span><span class="value" id="r_base">—</span></div>
+          <div class="int-row"><span class="name">Historical (GiB)</span><span class="value" id="r_hist">—</span></div>
+          <div class="int-row"><span class="name">Total deduplicated (GiB)</span><span class="value" id="r_total">—</span></div>
+        </div>
+      </div>
+
+      <!-- Formula -->
+      <div class="formula-box">
+        <div class="f-title">Core Equation</div>
+        <div class="f-eq">S_repo ≈ κ × [ P × (1/DR) + Δ × (N_eff − 1 + L_snap + L_imm) ] × (1 + m) × (1 + ε)</div>
+        <div class="f-syms">
+          <div class="sym"><code>P</code> primary PVC data (GiB) — per namespace</div>
+          <div class="sym"><code>κ = 1−c</code> compression multiplier</div>
+          <div class="sym"><code>DR</code> deduplication ratio</div>
+          <div class="sym"><code>Δ = r×P/DR</code> per-snapshot delta</div>
+          <div class="sym"><code>N_eff = MAX(1, N_raw−O)</code> effective retained snapshots</div>
+          <div class="sym"><code>L_snap = 2×f</code> GC catch-up buffer</div>
+          <div class="sym"><code>L_imm = (imm+20)×f</code> immutability buffer (0 if imm=0)</div>
+          <div class="sym"><code>m = m_index + m_files</code> metadata overhead</div>
+          <div class="sym"><code>ε</code> compaction churn buffer</div>
+        </div>
+      </div>
+
+      <!-- Reference tables -->
+      <div class="ref-title">Reference</div>
+      <div class="ref-tables">
+        <div class="ref-table">
+          <div class="ref-table-title">Compressibility (c)</div>
+          <table><thead><tr><th>Workload</th><th>Typical c</th></tr></thead><tbody>
+            <tr><td>Text logs, YAML/JSON</td><td>40–70%</td></tr>
+            <tr><td>Source code, docs</td><td>30–60%</td></tr>
+            <tr><td>Web apps (mixed)</td><td>20–40%</td></tr>
+            <tr><td>Databases (MySQL/PG)</td><td>5–20%</td></tr>
+            <tr><td>Binary app data</td><td>10–20%</td></tr>
+            <tr><td>Media files</td><td>0–5%</td></tr>
+            <tr><td>Encrypted / random</td><td>0%</td></tr>
+          </tbody></table>
+        </div>
+        <div class="ref-table">
+          <div class="ref-table-title">Deduplication (DR)</div>
+          <table><thead><tr><th>Workload</th><th>Typical DR</th></tr></thead><tbody>
+            <tr><td>Text logs, YAML/JSON</td><td>1.3–2.0</td></tr>
+            <tr><td>Source code, docs</td><td>1.2–1.6</td></tr>
+            <tr><td>Web apps (mixed)</td><td>1.1–1.3</td></tr>
+            <tr><td>Databases (MySQL/PG)</td><td>1.0–1.2</td></tr>
+            <tr><td>Binary app data</td><td>1.0–1.2</td></tr>
+            <tr><td>Media files</td><td>1.0</td></tr>
+            <tr><td>Encrypted / random</td><td>1.0</td></tr>
+          </tbody></table>
+        </div>
+        <div class="ref-table">
+          <div class="ref-table-title">Index Overhead (m_index)</div>
+          <table><thead><tr><th>Workload</th><th>m_index</th></tr></thead><tbody>
+            <tr><td>Few large files (VM, DB)</td><td>0.5–1%</td></tr>
+            <tr><td>Mixed web, config, logs</td><td>1–2%</td></tr>
+            <tr><td>Millions of tiny files</td><td>2–5%</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="disclaimer">
+        Results are <strong>per namespace</strong>. Use the Cluster Scan tab to aggregate
+        across multiple namespaces automatically.
+      </div>
+    </div>
+
+    <!-- ─────────── CLUSTER SCAN TAB ─────────── -->
+    <div class="tab-panel active" id="panel-cluster">
+
+      <div class="ns-note">
+        <strong>Cluster-wide sizing.</strong>
+        Scan your cluster to discover namespaces and their PVC capacities. Namespaces with PVCs are pre-selected.
+        Expand a namespace row to select individual PVCs and set each PVC's <strong>workload type</strong>
+        — this determines the compressibility (c) and deduplication ratio (DR) used for that PVC.
+        Change rate, retention, and immutability are shared from the left panel.
+      </div>
+
+      <div class="scan-toolbar">
+        <button class="btn btn-primary" id="btn-scan" onclick="scanCluster()">Scan Cluster</button>
+        <button class="btn btn-ghost" id="btn-selall"    onclick="selectAllNs(true)"  style="display:none">Select All</button>
+        <button class="btn btn-ghost" id="btn-deselall"  onclick="selectAllNs(false)" style="display:none">Deselect All</button>
+        <span class="scan-status" id="scan-status"></span>
+      </div>
+
+      <div id="ns-controls" style="display:none">
+        <div class="filter-bar">
+          <input class="ns-search" type="text" id="ns-search" placeholder="Filter namespaces…" oninput="renderNsTable()">
+          <label>
+            <input type="checkbox" id="filter-has-pvcs" onchange="renderNsTable()">
+            Only namespaces with PVCs
+          </label>
+        </div>
+      </div>
+
+      <div id="ns-table-container"></div>
+
+      <!-- Aggregate results -->
+      <div id="agg-results" style="display:none">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+          <button class="btn btn-ghost" onclick="showCapacityPlanning()" style="display:flex;align-items:center;gap:7px;">
+            <svg style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Capacity Planning
+          </button>
+          <button class="btn btn-primary" onclick="generateReport()" style="display:flex;align-items:center;gap:7px;">
+            <svg style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Report (PDF)
+          </button>
+        </div>
+        <div class="agg-cards">
+          <div class="agg-card">
+            <div class="ac-label">Total recommended capacity</div>
+            <div class="ac-val" id="agg_rec_gib">—</div>
+            <div class="ac-unit">GiB</div>
+          </div>
+          <div class="agg-card">
+            <div class="ac-label">Total recommended capacity</div>
+            <div class="ac-val" id="agg_rec_tib">—</div>
+            <div class="ac-unit">TiB</div>
+          </div>
+          <div class="agg-card cost">
+            <div class="ac-label">Estimated cost / month</div>
+            <div class="ac-val">$<span id="agg_cost_month">—</span></div>
+            <div class="ac-unit">$<span id="agg_cost_year">—</span> / year</div>
+          </div>
+        </div>
+        <!-- Storage composition bar -->
+        <div class="comp-bar-wrap" id="comp-bar-section" style="display:none"></div>
+
+        <div style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+          color:var(--muted);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);">
+          Per-namespace breakdown
+        </div>
+        <div class="agg-table-wrap">
+          <table class="agg-tbl">
+            <thead><tr>
+              <th>Namespace</th>
+              <th>PVCs (sel/total)</th>
+              <th>Selected PVC (GiB)</th>
+              <th>S_repo (GiB)</th>
+              <th>Rec. capacity (GiB)</th>
+              <th>Rec. capacity (TiB)</th>
+            </tr></thead>
+            <tbody id="agg-tbody"></tbody>
+          </table>
+        </div>
+        <div class="disclaimer">
+          Compressibility and deduplication ratio are applied per PVC via workload type.
+          Change rate, retention, and immutability are shared. Headroom is applied to the total S_repo per namespace.
+        </div>
+      </div>
+
+      <div id="agg-empty" class="no-selection" style="display:none">
+        Select one or more PVCs above to see the aggregated sizing estimate.
+      </div>
+
+    </div>
+  </div><!-- col-content -->
+</div><!-- page -->
+
+<!-- ── Capacity Planning Modal ── -->
+<div class="modal-overlay" id="cap-modal" onclick="if(event.target===this)closeCapModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Capacity Planning — Growth to Steady State</span>
+      <button class="modal-close" onclick="closeCapModal()">&#215;</button>
+    </div>
+    <div id="cap-chart-container"></div>
+    <div id="cap-chart-legend" style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="report-container"></div>
+
+<script>
+// ══════════════════ WORKLOAD PRESETS (median c and DR from reference tables) ══════════════════
+const WORKLOADS = {
+  logs:      { label:'Text logs / YAML / JSON',     c:0.550, DR:1.65 },
+  source:    { label:'Source code / scripts / docs', c:0.450, DR:1.40 },
+  web:       { label:'Web apps (mixed)',             c:0.300, DR:1.20 },
+  database:  { label:'Databases (MySQL / PG)',       c:0.125, DR:1.10 },
+  binary:    { label:'Binary app data',              c:0.150, DR:1.10 },
+  media:     { label:'Media files',                  c:0.025, DR:1.00 },
+  encrypted: { label:'Encrypted / random',           c:0.000, DR:1.00 },
+};
+const DEFAULT_WORKLOAD = 'web';
+
+// Build the workload <select> options HTML once
+const WORKLOAD_OPTIONS = Object.entries(WORKLOADS)
+  .map(([k,w])=>`<option value="${k}">${w.label} — c=${(w.c*100).toFixed(1)}%  DR=${w.DR}</option>`)
+  .join('');
+
+// ══════════════════ THEME ══════════════════
+(function(){
+  const t = localStorage.getItem('sizingTheme') || 'dark';
+  applyTheme(t);
+})();
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const sun  = document.getElementById('icon-sun');
+  const moon = document.getElementById('icon-moon');
+  const lbl  = document.getElementById('theme-label');
+  if (!sun) return; // called before DOM ready — will be re-applied via boot
+  if (t === 'dark') {
+    sun.style.display  = '';
+    moon.style.display = 'none';
+    lbl.textContent    = 'Light';
+  } else {
+    sun.style.display  = 'none';
+    moon.style.display = '';
+    lbl.textContent    = 'Dark';
+  }
+  localStorage.setItem('sizingTheme', t);
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+
+// ══════════════════ HELPERS ══════════════════
+function fmtGib(v) {
+  if (!isFinite(v)) return '—';
+  if (v >= 10000) return v.toFixed(0);
+  if (v >= 100)   return v.toFixed(1);
+  return v.toFixed(2);
+}
+function fmtTib(v) { return isFinite(v) ? v.toFixed(3) : '—'; }
+function fmtN(v,d=4){ return isFinite(v) ? v.toFixed(d) : '—'; }
+function pct(v)     { return (v*100).toFixed(2)+'%'; }
+
+const EPS = 0.05; // compaction buffer — fixed, not editable
+
+function getPolicy() {
+  const cadence  = document.getElementById('inp_cadence').value;
+  const basis    = document.getElementById('inp_basis').value;
+  const fMap     = {daily:1,'2x_daily':2,'4x_daily':4,hourly:24};
+  const f        = fMap[cadence]||1;
+  const rate_day = parseFloat(document.getElementById('inp_rate_day').value)||0;
+  const rate_bkp = parseFloat(document.getElementById('inp_rate_backup').value)||0;
+  const r        = (basis==='per_day') ? rate_day/f : rate_bkp;
+  const c        = parseFloat(document.getElementById('inp_c').value)||0;
+  const DR       = parseFloat(document.getElementById('inp_dr').value)||1;
+  const H        = parseInt(document.getElementById('inp_H').value)||0;
+  const D        = parseInt(document.getElementById('inp_D').value)||0;
+  const W        = parseInt(document.getElementById('inp_W').value)||0;
+  const M        = parseInt(document.getElementById('inp_M').value)||0;
+  const Y        = parseInt(document.getElementById('inp_Y').value)||0;
+  const imm      = parseFloat(document.getElementById('inp_imm').value)||0;
+  const nfiles   = parseFloat(document.getElementById('inp_nfiles').value)||0;
+  const m_index  = parseFloat(document.getElementById('inp_mindex').value)||0;
+  const headroom = parseFloat(document.getElementById('inp_headroom').value)||0;
+  const cost_pgib= parseFloat(document.getElementById('inp_cost').value)||0;
+  const N_raw = H+D+W+M+Y;
+  const O     = (H>0&&D>0?1:0)+(D>0&&W>0?1:0)+(W>0&&M>0?1:0)+(M>0&&Y>0?1:0);
+  return { f, r, c, DR, kappa:1-c, N_raw, O,
+           N_eff:Math.max(1,N_raw-O),
+           L_snap:2*f, L_imm:imm>0 ? (imm+20)*f : 0,
+           nfiles, m_index, headroom, cost_pgib };
+}
+
+// Core calculation for one block of data with explicit c and DR
+function calcPvc(P, c, DR, pol) {
+  const kappa = 1-c;
+  const {r,N_eff,L_snap,L_imm,nfiles,m_index} = pol;
+  const delta       = (1/DR)*r*P;
+  let m_files       = 0;
+  if (P>0 && nfiles>0) m_files = Math.min(0.10,(nfiles*2/(1024*1024))/P);
+  const m           = m_index+m_files;
+  const base_unique = P*(1/DR);
+  const historical  = delta*(N_eff-1+L_snap+L_imm);
+  const total       = base_unique+historical;
+  const S_repo_gib  = kappa*total*(1+m)*(1+EPS);
+  return { delta, m_files, m, base_unique, historical, total, S_repo_gib };
+}
+
+// Manual tab: single namespace, uses global c/DR from policy panel
+function calcForP(P, pol) {
+  const res     = calcPvc(P, pol.c, pol.DR, pol);
+  const rec_gib = res.S_repo_gib*(1+pol.headroom);
+  return { ...res, S_repo_tib:res.S_repo_gib/1024,
+           rec_gib, rec_tib:rec_gib/1024,
+           cost_month:rec_gib*pol.cost_pgib, cost_year:rec_gib*pol.cost_pgib*12 };
+}
+
+// Cluster scan: sum S_repo across selected PVCs using per-PVC workload c/DR
+function calcNsCluster(ns, pol) {
+  const pvcs   = ns.pvcs||[];
+  const selSet = selectedPvcs[ns.name]||new Set();
+  let totalSrepo = 0;
+  for (const p of pvcs) {
+    if (!selSet.has(p.name)) continue;
+    const wKey = (pvcWorkloads[ns.name]||{})[p.name] || DEFAULT_WORKLOAD;
+    const wl   = WORKLOADS[wKey];
+    totalSrepo += calcPvc(p.gib, wl.c, wl.DR, pol).S_repo_gib;
+  }
+  const rec_gib = totalSrepo*(1+pol.headroom);
+  return { S_repo_gib:totalSrepo, rec_gib, rec_tib:rec_gib/1024 };
+}
+
+// ══════════════════ TABS ══════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function toggleBasis() {
+  const b = document.getElementById('inp_basis').value;
+  document.getElementById('field_rate_day').style.display    = b==='per_day'    ? '' : 'none';
+  document.getElementById('field_rate_backup').style.display = b==='per_backup' ? '' : 'none';
+  onPolicyChange();
+}
+
+function onPolicyChange() {
+  calcManual();
+  calcAggregate();
+}
+
+// ══════════════════ MANUAL TAB ══════════════════
+function calcManual() {
+  const P   = parseFloat(document.getElementById('inp_P').value)||0;
+  const pol = getPolicy();
+  const res = calcForP(P, pol);
+
+  document.getElementById('res_rec_gib').textContent    = fmtGib(res.rec_gib);
+  document.getElementById('res_rec_tib').textContent    = fmtTib(res.rec_tib);
+  document.getElementById('res_srepo_gib').textContent  = fmtGib(res.S_repo_gib);
+  document.getElementById('res_srepo_tib').textContent  = fmtTib(res.S_repo_tib);
+  document.getElementById('res_cost_month').textContent = isFinite(res.cost_month) ? res.cost_month.toFixed(2) : '—';
+  document.getElementById('res_cost_year').textContent  = isFinite(res.cost_year)  ? res.cost_year.toFixed(2)  : '—';
+
+  document.getElementById('r_f').textContent     = pol.f;
+  document.getElementById('r_r').textContent     = fmtN(pol.r)+'  ('+pct(pol.r)+')';
+  document.getElementById('r_kappa').textContent = fmtN(pol.kappa,3);
+  document.getElementById('r_nraw').textContent  = pol.N_raw;
+  document.getElementById('r_o').textContent     = pol.O;
+  document.getElementById('r_neff').textContent  = pol.N_eff;
+  document.getElementById('r_delta').textContent = fmtGib(res.delta);
+  document.getElementById('r_lsnap').textContent = pol.L_snap;
+  document.getElementById('r_limm').textContent  = pol.L_imm;
+  document.getElementById('r_mfiles').textContent= pct(res.m_files);
+  document.getElementById('r_m').textContent     = pct(res.m);
+  document.getElementById('r_base').textContent  = fmtGib(res.base_unique);
+  document.getElementById('r_hist').textContent  = fmtGib(res.historical);
+  document.getElementById('r_total').textContent = fmtGib(res.total);
+}
+
+// ══════════════════ CLUSTER SCAN TAB ══════════════════
+let nsData = [];
+let selectedPvcs = {};             // { [nsName]: Set<pvcName> }
+let pvcWorkloads  = {};            // { [nsName]: { [pvcName]: workloadKey } }
+
+async function scanCluster() {
+  const btn    = document.getElementById('btn-scan');
+  const status = document.getElementById('scan-status');
+  btn.disabled = true;
+  status.className = 'scan-status loading';
+  status.innerHTML = '<span class="spinner"></span>Scanning cluster…';
+  document.getElementById('ns-controls').style.display = 'none';
+  document.getElementById('ns-table-container').innerHTML = '';
+  document.getElementById('agg-results').style.display = 'none';
+  document.getElementById('agg-empty').style.display   = 'none';
+  ['btn-selall','btn-deselall'].forEach(id=>document.getElementById(id).style.display='none');
+
+  try {
+    const resp = await fetch('/api/namespaces');
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({detail:resp.statusText}));
+      throw new Error(err.detail||resp.statusText);
+    }
+    nsData = await resp.json();
+
+    // Pre-select all PVCs and default workload per namespace
+    selectedPvcs = {};
+    pvcWorkloads  = {};
+    nsData.forEach(ns => {
+      selectedPvcs[ns.name] = new Set((ns.pvcs||[]).map(p=>p.name));
+      pvcWorkloads[ns.name] = {};
+      (ns.pvcs||[]).forEach(p => { pvcWorkloads[ns.name][p.name] = DEFAULT_WORKLOAD; });
+    });
+
+    const withPvcs = nsData.filter(n=>n.pvc_count>0).length;
+    status.className   = 'scan-status ok';
+    status.textContent = `${nsData.length} namespaces found · ${withPvcs} with PVCs`;
+    document.getElementById('ns-controls').style.display = '';
+    ['btn-selall','btn-deselall'].forEach(id=>document.getElementById(id).style.display='');
+    renderNsTable();
+    calcAggregate();
+  } catch(e) {
+    status.className   = 'scan-status err';
+    status.textContent = 'Error: '+e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function getNsSelCount(ns) {
+  const s = selectedPvcs[ns.name];
+  return s ? s.size : 0;
+}
+function getNsSelGib(ns) {
+  const s = selectedPvcs[ns.name];
+  if (!s || s.size===0) return 0;
+  return (ns.pvcs||[]).filter(p=>s.has(p.name)).reduce((acc,p)=>acc+p.gib,0);
+}
+
+function renderNsTable() {
+  const search   = (document.getElementById('ns-search').value||'').toLowerCase();
+  const onlyPvcs = document.getElementById('filter-has-pvcs').checked;
+  const filtered = nsData.filter(n=>{
+    if (onlyPvcs && n.pvc_count===0) return false;
+    if (search && !n.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('ns-table-container').innerHTML =
+      '<div class="empty-ns">No namespaces match your filter.</div>';
+    return;
+  }
+
+  let rows = '';
+  for (const ns of filtered) {
+    const pvcs    = ns.pvcs || [];
+    const total   = pvcs.length;
+    const selCount= getNsSelCount(ns);
+    const selGib  = getNsSelGib(ns);
+    const allSel  = total>0 && selCount===total;
+    const noneSel = selCount===0;
+    const partial = total>0 && !allSel && !noneSel;
+    const phCls   = ns.phase==='Active' ? 'active' : 'terminating';
+
+    // Namespace checkbox state driven via JS after render
+    const cbId = 'cb-ns-'+ns.name.replace(/[^a-z0-9]/gi,'_');
+
+    let pvcRows = '';
+    if (pvcs.length) {
+      pvcs.forEach(p => {
+        const psel = selectedPvcs[ns.name]&&selectedPvcs[ns.name].has(p.name);
+        const wKey = (pvcWorkloads[ns.name]||{})[p.name] || DEFAULT_WORKLOAD;
+        const wl   = WORKLOADS[wKey];
+        const sid  = (ns.name+'__'+p.name).replace(/[^a-z0-9]/gi,'_');
+        // Build options with selected one pre-selected
+        const opts = Object.entries(WORKLOADS).map(([k,w])=>
+          `<option value="${k}"${k===wKey?' selected':''}>${w.label}</option>`
+        ).join('');
+        pvcRows += `<tr>
+          <td><input type="checkbox" ${psel?'checked':''} onchange="togglePvc('${ns.name}','${p.name}',this.checked)"></td>
+          <td>${p.name}</td>
+          <td class="r" style="white-space:nowrap">${p.storage||'—'}</td>
+          <td class="r">${p.gib.toFixed(2)}</td>
+          <td>
+            <select style="padding:3px 6px;font-size:.72rem;background:var(--input-bg);
+              border:1px solid var(--input-border);border-radius:5px;color:var(--text);
+              max-width:220px;outline:none;" onchange="setPvcWorkload('${ns.name}','${p.name}',this.value)">
+              ${opts}
+            </select>
+          </td>
+          <td class="r" id="pvc-c-${sid}"  style="color:var(--muted);white-space:nowrap">${(wl.c*100).toFixed(1)}%</td>
+          <td class="r" id="pvc-dr-${sid}" style="color:var(--muted)">${wl.DR}</td>
+          <td style="color:var(--muted)">${p.phase}</td>
+        </tr>`;
+      });
+    }
+
+    const partialBadge = partial ? `<span class="partial-badge">${selCount}/${total}</span>` : '';
+    const selGibStr    = selGib>0 ? selGib.toFixed(2) : (total===0 ? '—' : '0');
+    const expandBtn    = pvcs.length
+      ? `<button class="expand-btn" id="expbtn-${ns.name}" onclick="toggleDetail('${ns.name}',this)" title="Show / hide PVCs">&#9654;</button>`
+      : '<span style="display:inline-block;width:24px"></span>';
+
+    rows += `
+      <tr class="ns-row">
+        <td class="c">
+          <input type="checkbox" id="${cbId}"
+            onchange="toggleNs('${ns.name}',this.checked)">
+        </td>
+        <td>${expandBtn}${ns.name}${partialBadge}</td>
+        <td><span class="ns-phase ${phCls}">${ns.phase}</span></td>
+        <td class="c" style="color:${total>0?'var(--info)':'var(--muted)'}">${total||'—'}</td>
+        <td class="r" style="font-variant-numeric:tabular-nums;${selGib===0&&total>0?'color:var(--muted)':''}">${selGibStr}</td>
+      </tr>
+      ${pvcs.length ? `
+      <tr class="pvc-detail-row">
+        <td colspan="5" style="padding:0"><div class="pvc-inner" id="detail-${ns.name}">
+          <table class="pvc-sub-tbl">
+            <thead><tr>
+              <th style="width:28px"></th>
+              <th>PVC Name</th><th class="r">Requested</th><th class="r">GiB</th>
+              <th>Workload Type</th><th class="r">Compressibility</th><th class="r">Deduplication Ratio</th><th>Phase</th>
+            </tr></thead>
+            <tbody>${pvcRows}</tbody>
+          </table>
+        </div></td>
+      </tr>` : ''}`;
+  }
+
+  document.getElementById('ns-table-container').innerHTML = `
+    <div class="ns-table-wrap">
+      <table class="ns-tbl">
+        <thead><tr>
+          <th class="c" style="width:36px"></th>
+          <th>Namespace</th>
+          <th>Phase</th>
+          <th class="c">PVCs</th>
+          <th class="r">Selected PVC (GiB)</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  // Set checkbox indeterminate state (can't be done in HTML)
+  nsData.forEach(ns => {
+    const pvcs     = ns.pvcs||[];
+    const total    = pvcs.length;
+    const selCount = getNsSelCount(ns);
+    const cbId     = 'cb-ns-'+ns.name.replace(/[^a-z0-9]/gi,'_');
+    const cb       = document.getElementById(cbId);
+    if (!cb) return;
+    if (total===0) {
+      cb.checked       = false;
+      cb.indeterminate = false;
+    } else if (selCount===total) {
+      cb.checked       = true;
+      cb.indeterminate = false;
+    } else if (selCount===0) {
+      cb.checked       = false;
+      cb.indeterminate = false;
+    } else {
+      cb.checked       = false;
+      cb.indeterminate = true;
+    }
+  });
+}
+
+function setPvcWorkload(nsName, pvcName, wKey) {
+  if (!pvcWorkloads[nsName]) pvcWorkloads[nsName] = {};
+  pvcWorkloads[nsName][pvcName] = wKey;
+  const wl  = WORKLOADS[wKey];
+  const sid = (nsName+'__'+pvcName).replace(/[^a-z0-9]/gi,'_');
+  const cEl  = document.getElementById('pvc-c-'  + sid);
+  const drEl = document.getElementById('pvc-dr-' + sid);
+  if (cEl)  cEl.textContent  = (wl.c*100).toFixed(1)+'%';
+  if (drEl) drEl.textContent = wl.DR;
+  calcAggregate();
+}
+
+function toggleDetail(nsName, btn) {
+  const el = document.getElementById('detail-'+nsName);
+  if (!el) return;
+  const open = el.classList.toggle('open');
+  btn.innerHTML = open ? '&#9660;' : '&#9654;';
+}
+
+// Toggle a single PVC checkbox
+function togglePvc(nsName, pvcName, checked) {
+  if (!selectedPvcs[nsName]) selectedPvcs[nsName] = new Set();
+  if (checked) selectedPvcs[nsName].add(pvcName);
+  else         selectedPvcs[nsName].delete(pvcName);
+  // Update the namespace-level checkbox state only (don't re-render the whole table)
+  updateNsCb(nsName);
+  updateNsGibCell(nsName);
+  calcAggregate();
+}
+
+// Toggle all PVCs in a namespace
+function toggleNs(nsName, checked) {
+  const ns   = nsData.find(n=>n.name===nsName);
+  const pvcs = ns ? (ns.pvcs||[]) : [];
+  if (checked) selectedPvcs[nsName] = new Set(pvcs.map(p=>p.name));
+  else         selectedPvcs[nsName] = new Set();
+  // Re-render PVC sub-checkboxes for this namespace only
+  const detail = document.getElementById('detail-'+nsName);
+  if (detail) {
+    detail.querySelectorAll('input[type=checkbox]').forEach((cb,i) => {
+      cb.checked = checked;
+    });
+  }
+  updateNsCb(nsName);
+  updateNsGibCell(nsName);
+  calcAggregate();
+}
+
+function updateNsCb(nsName) {
+  const ns       = nsData.find(n=>n.name===nsName);
+  const total    = (ns&&ns.pvcs) ? ns.pvcs.length : 0;
+  const selCount = getNsSelCount(ns||{name:nsName,pvcs:[]});
+  const cbId     = 'cb-ns-'+nsName.replace(/[^a-z0-9]/gi,'_');
+  const cb       = document.getElementById(cbId);
+  if (!cb) return;
+  if (total===0) { cb.checked=false; cb.indeterminate=false; }
+  else if (selCount===total) { cb.checked=true; cb.indeterminate=false; }
+  else if (selCount===0)     { cb.checked=false; cb.indeterminate=false; }
+  else                       { cb.checked=false; cb.indeterminate=true; }
+}
+
+function updateNsGibCell(nsName) {
+  const ns  = nsData.find(n=>n.name===nsName);
+  if (!ns) return;
+  const gib = getNsSelGib(ns);
+  // Find the GiB td in the namespace row — 5th cell (index 4)
+  const rows = document.querySelectorAll('.ns-row');
+  for (const row of rows) {
+    const tds = row.querySelectorAll('td');
+    // Check if 2nd td contains the ns name
+    if (tds[1] && tds[1].textContent.replace(/[▶▼]/g,'').trim().startsWith(ns.name)) {
+      if (tds[4]) {
+        tds[4].textContent = gib>0 ? gib.toFixed(2) : (ns.pvcs&&ns.pvcs.length>0?'0':'—');
+        tds[4].style.color = gib===0&&ns.pvcs&&ns.pvcs.length>0 ? 'var(--muted)' : '';
+      }
+      break;
+    }
+  }
+}
+
+function selectAllNs(val) {
+  const search   = (document.getElementById('ns-search').value||'').toLowerCase();
+  const onlyPvcs = document.getElementById('filter-has-pvcs').checked;
+  nsData.filter(n=>{
+    if (onlyPvcs && n.pvc_count===0) return false;
+    if (search && !n.name.toLowerCase().includes(search)) return false;
+    return true;
+  }).forEach(n=>toggleNs(n.name, val));
+  renderNsTable();
+}
+
+function calcAggregate() {
+  if (!nsData.length) return;
+  const pol    = getPolicy();
+  const active = nsData.filter(n=>getNsSelGib(n)>0);
+
+  if (!active.length) {
+    document.getElementById('agg-results').style.display = 'none';
+    document.getElementById('agg-empty').style.display   = '';
+    return;
+  }
+  document.getElementById('agg-empty').style.display   = 'none';
+  document.getElementById('agg-results').style.display = '';
+
+  let totalRecGib=0, totalSrepoGib=0, totalSelGib=0, totalSelPvcs=0, totalTotalPvcs=0;
+  let rows = '';
+  for (const ns of active) {
+    const P      = getNsSelGib(ns);
+    const selCnt = getNsSelCount(ns);
+    const res    = calcNsCluster(ns, pol);
+    totalRecGib   += res.rec_gib;
+    totalSrepoGib += res.S_repo_gib;
+    totalSelGib   += P;
+    totalSelPvcs  += selCnt;
+    totalTotalPvcs+= (ns.pvcs||[]).length;
+    rows += `<tr>
+      <td>${ns.name}</td>
+      <td style="text-align:center">${selCnt}/${(ns.pvcs||[]).length}</td>
+      <td>${P.toFixed(2)}</td>
+      <td>${fmtGib(res.S_repo_gib)}</td>
+      <td>${fmtGib(res.rec_gib)}</td>
+      <td>${fmtTib(res.rec_tib)}</td>
+    </tr>`;
+  }
+  const totalRecTib = totalRecGib/1024;
+  const totalCostMo = totalRecGib*pol.cost_pgib;
+  rows += `<tr class="total-row">
+    <td>TOTAL (${active.length} namespace${active.length>1?'s':''})</td>
+    <td style="text-align:center">${totalSelPvcs}/${totalTotalPvcs}</td>
+    <td>${totalSelGib.toFixed(2)}</td>
+    <td>${fmtGib(totalSrepoGib)}</td>
+    <td>${fmtGib(totalRecGib)}</td>
+    <td>${fmtTib(totalRecTib)}</td>
+  </tr>`;
+
+  document.getElementById('agg-tbody').innerHTML        = rows;
+  document.getElementById('agg_rec_gib').textContent    = fmtGib(totalRecGib);
+  document.getElementById('agg_rec_tib').textContent    = fmtTib(totalRecTib);
+  document.getElementById('agg_cost_month').textContent = totalCostMo.toFixed(2);
+  document.getElementById('agg_cost_year').textContent  = (totalCostMo*12).toFixed(2);
+
+  renderCompositionBar(computeAggBreakdown(pol));
+}
+
+// ══════════════════ BREAKDOWN & CHARTS ══════════════════
+
+const SEG_COLORS = {
+  base:    '#22c55e',
+  hist:    '#0ea5e9',
+  meta:    '#8b5cf6',
+  compact: '#f97316',
+  headroom:'#94a3b8',
+};
+const SEG_LABELS = {
+  base:'Base (deduplicated)', hist:'Historical (retention + GC)',
+  meta:'Metadata / Index', compact:'Compaction buffer', headroom:'Headroom',
+};
+
+function computeAggBreakdown(pol) {
+  const active = nsData.filter(n => getNsSelGib(n) > 0);
+  let base_gib = 0;
+  for (const ns of active) {
+    for (const p of (ns.pvcs||[])) {
+      if (!(selectedPvcs[ns.name]||new Set()).has(p.name)) continue;
+      const wl = WORKLOADS[(pvcWorkloads[ns.name]||{})[p.name] || DEFAULT_WORKLOAD];
+      base_gib += (1 - wl.c) * p.gib / wl.DR;
+    }
+  }
+  const delta_gib  = pol.r * base_gib;                              // per backup period
+  const hist_gib   = delta_gib * (pol.N_eff - 1 + pol.L_snap + pol.L_imm);
+  const meta_gib   = (base_gib + hist_gib) * pol.m_index;
+  const pre_eps    = base_gib + hist_gib + meta_gib;
+  const compact_gib = pre_eps * EPS;
+  const S_repo      = pre_eps * (1 + EPS);
+  const headroom_gib = S_repo * pol.headroom;
+  return { base_gib, hist_gib, meta_gib, compact_gib, headroom_gib, S_repo,
+           recommended: S_repo + headroom_gib, delta_gib };
+}
+
+function fmtSeg(g) {
+  return g >= 1024 ? (g/1024).toFixed(2)+' TiB' : g.toFixed(0)+' GiB';
+}
+
+function renderCompositionBar(bd) {
+  const el = document.getElementById('comp-bar-section');
+  if (!el || !bd || bd.recommended <= 0) { if(el) el.style.display='none'; return; }
+  el.style.display = '';
+  const segs = [
+    { key:'base',    gib: bd.base_gib },
+    { key:'hist',    gib: bd.hist_gib },
+    { key:'meta',    gib: bd.meta_gib },
+    { key:'compact', gib: bd.compact_gib },
+    { key:'headroom',gib: bd.headroom_gib },
+  ];
+  const bars = segs.map(s => {
+    const w = (s.gib / bd.recommended * 100).toFixed(2);
+    const lbl = s.gib >= bd.recommended * 0.06 ? fmtSeg(s.gib) : '';
+    return `<div class="comp-seg" style="flex:${w} 0 0%;background:${SEG_COLORS[s.key]}" title="${SEG_LABELS[s.key]}: ${fmtSeg(s.gib)}">${lbl}</div>`;
+  }).join('');
+  const legend = segs.map(s =>
+    `<div class="comp-legend-item"><div class="comp-legend-dot" style="background:${SEG_COLORS[s.key]}"></div>${SEG_LABELS[s.key]}</div>`
+  ).join('');
+  el.innerHTML = `
+    <div class="comp-bar-title">Storage Composition</div>
+    <div class="comp-bar-header">
+      <span class="comp-sub">Composition</span>
+      <span class="comp-total">${fmtSeg(bd.recommended)}</span>
+    </div>
+    <div class="comp-bar">${bars}</div>
+    <div class="comp-legend">${legend}</div>`;
+}
+
+function generateCapacityChartSVG(pol, bd, W, H) {
+  W = W||700; H = H||320;
+  const ML=74, MR=22, MT=26, MB=58, PW=W-ML-MR, PH=H-MT-MB;
+  const T_steady = pol.N_eff - 1 + pol.L_snap + pol.L_imm;
+  if (T_steady <= 0 || bd.recommended <= 0) return '<text font-size="11" fill="#94a3b8" x="50%" y="50%" text-anchor="middle">Insufficient data</text>';
+
+  // Always show at least (T_steady + 5 backup-periods) so the flat steady-state
+  // section is visible and the chart doesn't look like a cliff edge.
+  const max_t   = Math.max(T_steady * 1.18, T_steady + pol.f * 5);
+  const max_day = max_t / pol.f;
+  const max_gib = bd.recommended * 1.14;
+
+  const sx = d  => ML + (d  / max_day) * PW;
+  const sy = g  => H - MB - Math.max(0, Math.min(g, max_gib)) / max_gib * PH;
+
+  const N = 120;
+  const pts = Array.from({length:N+1}, (_,i) => {
+    const t    = (i/N) * max_t;
+    const d    = t / pol.f;
+    const h_t  = Math.min(Math.max(0, t - 1), T_steady - 1) * bd.delta_gib;
+    const b_t  = t >= 1 ? bd.base_gib : 0;
+    const m_t  = (b_t + h_t) * pol.m_index;
+    const c_t  = (b_t + h_t + m_t) * EPS;
+    return { d, b1:b_t, b2:b_t+h_t, b3:b_t+h_t+m_t, b4:b_t+h_t+m_t+c_t };
+  });
+
+  function area(topFn, btmFn, fill, op='.88') {
+    const fwd = pts.map(p=>`${sx(p.d).toFixed(1)},${sy(topFn(p)).toFixed(1)}`).join(' ');
+    const rev = [...pts].reverse().map(p=>`${sx(p.d).toFixed(1)},${sy(btmFn(p)).toFixed(1)}`).join(' ');
+    return `<polygon points="${fwd} ${rev}" fill="${fill}" opacity="${op}"/>`;
+  }
+
+  // Y grid + ticks
+  const nY = 5;
+  let yGrid='', yTick='';
+  for (let i=0; i<=nY; i++) {
+    const g = i/nY * max_gib;
+    const y = sy(g).toFixed(1);
+    const lbl = g>=1024 ? (g/1024).toFixed(2)+' TiB' : g.toFixed(0)+' GiB';
+    if (i>0) yGrid += `<line x1="${ML}" y1="${y}" x2="${ML+PW}" y2="${y}" stroke="#e2e8f0" stroke-width=".6"/>`;
+    yTick += `<line x1="${ML-3}" y1="${y}" x2="${ML}" y2="${y}" stroke="#94a3b8" stroke-width="1"/>`;
+    yTick += `<text x="${ML-5}" y="${y}" dy="4" text-anchor="end" font-size="9" fill="#64748b">${lbl}</text>`;
+  }
+
+  // X ticks
+  const nX = 7;
+  let xTick='';
+  for (let i=0; i<=nX; i++) {
+    const d = i/nX * max_day;
+    const x = sx(d).toFixed(1);
+    const lbl = d>=365?(d/365).toFixed(1)+'y': d>=30?(d/30).toFixed(1)+'mo': Math.round(d)+'d';
+    xTick += `<line x1="${x}" y1="${H-MB}" x2="${x}" y2="${H-MB+3}" stroke="#94a3b8" stroke-width="1"/>`;
+    xTick += `<text x="${x}" y="${H-MB+13}" text-anchor="middle" font-size="9" fill="#64748b">${lbl}</text>`;
+  }
+
+  // Vertical markers: retention window + immutability window
+  const retDay = pol.N_eff / pol.f;
+  const immDay = pol.L_imm / pol.f;
+  const maxRefDay = Math.max(retDay, immDay);
+  let markers='';
+  function vmark(day, color, label) {
+    if (day <= 0 || day > max_day * .98) return;
+    const x = sx(day).toFixed(1);
+    markers += `<line x1="${x}" y1="${MT}" x2="${x}" y2="${H-MB}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5,3"/>`;
+    markers += `<text x="${x}" y="${MT-4}" text-anchor="middle" font-size="8" fill="${color}">${label}</text>`;
+  }
+  vmark(retDay, '#22c55e', 'Retention');
+  // Only draw the immutability marker when it is actually active (L_imm > 0)
+  if (pol.L_imm > 0 && Math.abs(immDay - retDay) > max_day * 0.04) vmark(immDay, '#f97316', 'Imm+20d');
+
+  // Reference lines
+  const sry = sy(bd.S_repo).toFixed(1);
+  const rcy = sy(bd.recommended).toFixed(1);
+  const rx  = (ML+PW+2).toFixed(0);
+  const refLines = `
+    <line x1="${ML}" y1="${sry}" x2="${ML+PW}" y2="${sry}" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="6,3"/>
+    <text x="${rx}" y="${sry}" dy="4" font-size="8" fill="#7c3aed">S_repo</text>
+    <line x1="${ML}" y1="${rcy}" x2="${ML+PW}" y2="${rcy}" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6,3"/>
+    <text x="${rx}" y="${rcy}" dy="4" font-size="8" fill="#64748b">Rec.</text>`;
+
+  // Headroom fill zone (S_repo → recommended)
+  const hzTop = pts.map(p=>`${sx(p.d).toFixed(1)},${sy(bd.recommended).toFixed(1)}`).join(' ');
+  const hzBtm = [...pts].reverse().map(p=>`${sx(p.d).toFixed(1)},${sy(bd.S_repo).toFixed(1)}`).join(' ');
+  const headroomZone = `<polygon points="${hzTop} ${hzBtm}" fill="${SEG_COLORS.headroom}" opacity=".4"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto">
+  <rect width="${W}" height="${H}" fill="transparent"/>
+  ${yGrid}
+  ${area(p=>p.b1, p=>0,    SEG_COLORS.base)}
+  ${area(p=>p.b2, p=>p.b1, SEG_COLORS.hist)}
+  ${area(p=>p.b3, p=>p.b2, SEG_COLORS.meta)}
+  ${area(p=>p.b4, p=>p.b3, SEG_COLORS.compact)}
+  ${headroomZone}
+  ${markers}
+  ${refLines}
+  <line x1="${ML}" y1="${H-MB}" x2="${ML+PW}" y2="${H-MB}" stroke="#94a3b8" stroke-width="1"/>
+  <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H-MB}" stroke="#94a3b8" stroke-width="1"/>
+  ${yTick}${xTick}
+  <text x="${(ML+PW/2).toFixed(0)}" y="${H-3}" text-anchor="middle" font-size="10" fill="#64748b">Time</text>
+  <text x="11" y="${(MT+PH/2).toFixed(0)}" text-anchor="middle" font-size="10" fill="#64748b"
+    transform="rotate(-90,11,${(MT+PH/2).toFixed(0)})">GiB</text>
+</svg>`;
+}
+
+function showCapacityPlanning() {
+  const pol = getPolicy();
+  const bd  = computeAggBreakdown(pol);
+  if (!bd || bd.recommended <= 0) return;
+
+  document.getElementById('cap-chart-container').innerHTML = generateCapacityChartSVG(pol, bd);
+
+  const legend = Object.entries(SEG_LABELS).map(([k,l]) =>
+    `<div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted)">
+      <div style="width:11px;height:11px;border-radius:2px;background:${SEG_COLORS[k]};flex-shrink:0"></div>${l}
+    </div>`
+  ).join('') +
+  `<div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted)">
+    <svg style="width:24px;height:11px"><line x1="0" y1="5.5" x2="24" y2="5.5" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5,3"/></svg>S_repo (steady state)
+  </div>
+  <div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted)">
+    <svg style="width:24px;height:11px"><line x1="0" y1="5.5" x2="24" y2="5.5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/></svg>Recommended (with headroom)
+  </div>`;
+  document.getElementById('cap-chart-legend').innerHTML = legend;
+  document.getElementById('cap-modal').classList.add('open');
+}
+
+function closeCapModal() {
+  document.getElementById('cap-modal').classList.remove('open');
+}
+
+// ══════════════════ PDF REPORT ══════════════════
+function generateReport() {
+  const pol    = getPolicy();
+  const active = nsData.filter(n => getNsSelGib(n) > 0);
+  if (!active.length) return;
+
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+
+  const cadenceMap = {
+    daily:'Daily (1×/day)', '2x_daily':'Twice daily (2×/day)',
+    '4x_daily':'4× daily', hourly:'Hourly (24×/day)'
+  };
+  const cadence  = document.getElementById('inp_cadence').value;
+  const basis    = document.getElementById('inp_basis').value;
+  const immDays  = parseFloat(document.getElementById('inp_imm').value)||0;
+  const mindex   = parseFloat(document.getElementById('inp_mindex').value)||0;
+  const rateDay  = parseFloat(document.getElementById('inp_rate_day').value)||0;
+  const rateBkp  = parseFloat(document.getElementById('inp_rate_backup').value)||0;
+  const rateStr  = basis === 'per_day'
+    ? `${(rateDay*100).toFixed(1)}% / day  →  ${(pol.r*100).toFixed(2)}% / backup at ${pol.f} backup${pol.f>1?'s':''}/day`
+    : `${(rateBkp*100).toFixed(2)}% / backup`;
+  const retentionStr =
+    `H=${document.getElementById('inp_H').value}  D=${document.getElementById('inp_D').value}  ` +
+    `W=${document.getElementById('inp_W').value}  M=${document.getElementById('inp_M').value}  ` +
+    `Y=${document.getElementById('inp_Y').value}  →  N_raw=${pol.N_raw}, N_eff=${pol.N_eff}`;
+
+  // Build per-namespace sections
+  let nsSections = '';
+  let totalRecGib=0, totalSrepoGib=0, totalSelGib=0, totalSelPvcs=0, totalTotalPvcs=0;
+
+  for (const ns of active) {
+    const pvcs    = ns.pvcs || [];
+    const selSet  = selectedPvcs[ns.name] || new Set();
+    const selPvcs = pvcs.filter(p => selSet.has(p.name));
+    const res     = calcNsCluster(ns, pol);
+    const nsSelGib = getNsSelGib(ns);
+
+    totalRecGib    += res.rec_gib;
+    totalSrepoGib  += res.S_repo_gib;
+    totalSelGib    += nsSelGib;
+    totalSelPvcs   += selPvcs.length;
+    totalTotalPvcs += pvcs.length;
+
+    const pvcRows = selPvcs.map(p => {
+      const wKey = (pvcWorkloads[ns.name]||{})[p.name] || DEFAULT_WORKLOAD;
+      const wl   = WORKLOADS[wKey];
+      return `<tr>
+        <td>${p.name}</td>
+        <td class="r">${p.storage||'—'}</td>
+        <td class="r">${p.gib.toFixed(2)}</td>
+        <td>${wl.label}</td>
+        <td class="r">${(wl.c*100).toFixed(1)}%</td>
+        <td class="r">${wl.DR}</td>
+        <td>${p.phase}</td>
+      </tr>`;
+    }).join('');
+
+    nsSections += `
+      <div class="rpt-ns">
+        <div class="rpt-ns-title">Namespace: ${ns.name}
+          &nbsp;&nbsp;<span style="font-weight:400;font-size:8.5pt;color:#64748b">
+            (${selPvcs.length} of ${pvcs.length} PVC${pvcs.length!==1?'s':''} selected)
+          </span>
+        </div>
+        <table class="rpt-tbl">
+          <thead><tr>
+            <th>PVC Name</th><th class="r">Requested</th><th class="r">GiB</th>
+            <th>Workload Type</th><th class="r">Compressibility (c)</th>
+            <th class="r">Dedup Ratio (DR)</th><th>Phase</th>
+          </tr></thead>
+          <tbody>${pvcRows}</tbody>
+        </table>
+        <div class="rpt-ns-result">
+          Selected PVC data: <strong>${nsSelGib.toFixed(2)} GiB</strong>
+          &nbsp;·&nbsp; S_repo: <strong>${fmtGib(res.S_repo_gib)} GiB</strong>
+          &nbsp;·&nbsp; Recommended capacity: <strong>${fmtGib(res.rec_gib)} GiB &nbsp;/&nbsp; ${fmtTib(res.rec_tib)} TiB</strong>
+        </div>
+      </div>`;
+  }
+
+  const totalRecTib = totalRecGib / 1024;
+  const costMonth   = totalRecGib * pol.cost_pgib;
+
+  const html = `
+    <div class="rpt-header">
+      <div>
+        <div class="rpt-logo">Veeam Kasten <span>— Kopia Repository Sizing Report</span></div>
+      </div>
+      <div class="rpt-date">Generated on ${dateStr}<br>at ${timeStr}</div>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-section-title">Backup Policy</div>
+      <table class="rpt-policy-tbl">
+        <tr><td>Backup cadence</td><td>${cadenceMap[cadence]}</td></tr>
+        <tr><td>Change rate</td><td>${rateStr}</td></tr>
+        <tr><td>Retention policy</td><td>${retentionStr}</td></tr>
+        <tr><td>Immutability period</td><td>${immDays>0 ? `${immDays} days + 20 days (Kasten BLM) = ${immDays+20} days · L_imm = ${pol.L_imm} backup increments` : 'Disabled (L_imm = 0)'}</td></tr>
+        <tr><td>Index overhead (m_index)</td><td>${(mindex*100).toFixed(2)}%</td></tr>
+        <tr><td>Compaction buffer (ε)</td><td>5% (fixed)</td></tr>
+        <tr><td>Operational headroom</td><td>${(pol.headroom*100).toFixed(0)}%</td></tr>
+        <tr><td>Storage cost</td><td>$${pol.cost_pgib}/GiB/month</td></tr>
+      </table>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-section-title">Per-Namespace Details (${active.length} namespace${active.length!==1?'s':''})</div>
+      ${nsSections}
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-section-title">Summary</div>
+      <div class="rpt-summary">
+        <div class="rpt-sum-row"><span class="k">Namespaces included</span><span class="v">${active.length}</span></div>
+        <div class="rpt-sum-row"><span class="k">PVCs included / scanned</span><span class="v">${totalSelPvcs} / ${totalTotalPvcs}</span></div>
+        <div class="rpt-sum-row"><span class="k">Total PVC data (selected)</span><span class="v">${totalSelGib.toFixed(2)} GiB</span></div>
+        <div class="rpt-sum-row"><span class="k">Total repository size (S_repo)</span><span class="v">${fmtGib(totalSrepoGib)} GiB</span></div>
+        <div class="rpt-spacer"></div>
+        <div class="rpt-highlight">Recommended capacity: ${fmtGib(totalRecGib)} GiB &nbsp;/&nbsp; ${fmtTib(totalRecTib)} TiB</div>
+        <div class="rpt-sum-row"><span class="k">Estimated storage cost / month</span><span class="v">$${costMonth.toFixed(2)}</span></div>
+        <div class="rpt-sum-row"><span class="k">Estimated storage cost / year</span><span class="v">$${(costMonth*12).toFixed(2)}</span></div>
+      </div>
+    </div>
+
+    <div class="rpt-disclaimer">
+      <strong>IMPORTANT — Estimation only.</strong>
+      This report is provided for informational and planning purposes only. Results represent a directional estimate based on the
+      inputs supplied and standard Kopia repository modelling assumptions. They do not constitute a commitment, guarantee, warranty,
+      or contractual obligation of any kind by Veeam Software or any of its affiliates. Actual repository size and storage costs
+      may differ significantly depending on real workload characteristics, data change patterns, Kopia maintenance behaviour,
+      object storage provider specifics, and maintenance scheduling.
+      Compressibility and deduplication ratios use median values for the selected workload type.
+      Change rate, retention, immutability, and headroom are shared across all namespaces.
+      Core formula: S_repo ≈ κ × [ P × (1/DR) + Δ × (N_eff − 1 + L_snap + L_imm) ] × (1 + m) × (1 + ε)
+      where ε = 0.05 (fixed), κ = 1 − c, Δ = r × P / DR, L_snap = 2 × f, L_imm = (imm + 20) × f.
+    </div>`;
+
+  // Build composition bar SVG for PDF (inline, white background)
+  const bd = computeAggBreakdown(pol);
+  const compBarHtml = buildCompBarHtml(bd);
+  const capChartSvg = generateCapacityChartSVG(pol, bd, 680, 300);
+  const capLegendHtml = buildLegendHtml();
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>Veeam Kasten — Sizing Report ${dateStr}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.print-bar{position:sticky;top:0;z-index:99;background:#fff;border-bottom:1px solid #e2e8f0;
+  padding:8px 18px;display:flex;align-items:center;gap:10px;}
+.print-bar button{background:#6d28d9;color:#fff;border:none;padding:7px 18px;border-radius:6px;
+  font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;}
+.print-bar button:hover{background:#5b21b6;}
+.print-bar .hint{font-size:11px;color:#64748b;}
+@media print{.print-bar{display:none;}}
+body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:11pt;line-height:1.5;
+  background:#fff;padding:0;}
+@page{margin:16mm 18mm 16mm 18mm;size:A4;}
+.rpt-header{display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:2.5pt solid #6d28d9;padding-bottom:10pt;margin-bottom:14pt;}
+.rpt-logo{font-size:15pt;font-weight:700;color:#6d28d9;}
+.rpt-logo span{color:#1e293b;}
+.rpt-date{font-size:8.5pt;color:#64748b;text-align:right;line-height:1.6;}
+.rpt-section{margin-bottom:16pt;page-break-inside:avoid;}
+.rpt-section-title{font-size:10pt;font-weight:700;color:#6d28d9;text-transform:uppercase;
+  letter-spacing:.05em;border-bottom:1pt solid #e2e8f0;padding-bottom:4pt;margin-bottom:8pt;}
+.rpt-policy-tbl{width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:4pt;}
+.rpt-policy-tbl td{padding:3pt 7pt;border-bottom:1pt solid #f1f5f9;vertical-align:top;}
+.rpt-policy-tbl td:first-child{color:#64748b;width:48%;font-weight:500;}
+.rpt-policy-tbl td:last-child{font-weight:600;color:#1e293b;}
+.rpt-policy-tbl tr:last-child td{border-bottom:none;}
+.rpt-ns{margin-bottom:12pt;page-break-inside:avoid;}
+.rpt-ns-title{font-size:9.5pt;font-weight:700;background:#f1f5f9;padding:4pt 8pt;
+  border-left:3pt solid #6d28d9;margin-bottom:5pt;}
+.rpt-tbl{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:5pt;}
+.rpt-tbl th{background:#f8fafc;border:1pt solid #e2e8f0;padding:3.5pt 7pt;text-align:left;
+  font-weight:700;color:#475569;font-size:7.5pt;text-transform:uppercase;white-space:nowrap;}
+.rpt-tbl th.r,.rpt-tbl td.r{text-align:right;}
+.rpt-tbl td{border:1pt solid #e2e8f0;padding:3.5pt 7pt;}
+.rpt-tbl tr:nth-child(even) td{background:#fafafa;}
+.rpt-ns-result{font-size:8.5pt;color:#475569;margin-top:3pt;}
+.rpt-ns-result strong{color:#1e293b;}
+.rpt-summary{border:2pt solid #6d28d9;border-radius:5pt;padding:10pt 14pt;background:#faf5ff;}
+.rpt-sum-row{display:flex;justify-content:space-between;padding:3pt 0;
+  border-bottom:1pt solid #e9d5ff;font-size:9pt;}
+.rpt-sum-row:last-child{border-bottom:none;}
+.rpt-sum-row .k{color:#64748b;}
+.rpt-sum-row .v{font-weight:700;color:#4c1d95;}
+.rpt-highlight{font-size:14pt;font-weight:700;color:#6d28d9;padding:6pt 0 4pt;}
+.rpt-spacer{height:5pt;}
+/* Composition bar */
+.rpt-comp-wrap{margin-bottom:6pt;}
+.rpt-comp-lbl{font-size:8pt;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4pt;}
+.rpt-comp-header{display:flex;justify-content:space-between;font-size:8.5pt;margin-bottom:4pt;}
+.rpt-comp-bar{height:24pt;border-radius:4pt;overflow:hidden;display:flex;}
+.rpt-comp-seg{display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-size:7pt;font-weight:700;color:white;padding:0 3pt;white-space:nowrap;}
+.rpt-comp-legend{display:flex;flex-wrap:wrap;gap:4pt 12pt;margin-top:5pt;}
+.rpt-comp-legend-item{display:flex;align-items:center;gap:4pt;font-size:7.5pt;color:#64748b;}
+.rpt-comp-dot{width:8pt;height:8pt;border-radius:2pt;flex-shrink:0;}
+/* Chart */
+.rpt-chart-legend{display:flex;flex-wrap:wrap;gap:4pt 14pt;margin-top:6pt;}
+.rpt-chart-legend-item{display:flex;align-items:center;gap:4pt;font-size:7.5pt;color:#64748b;}
+.rpt-disclaimer{font-size:8pt;font-weight:700;font-style:normal;color:#c8102e;
+  border-top:2pt solid #c8102e;padding-top:8pt;margin-top:14pt;line-height:1.6;}
+</style></head>
+<body>
+<div class="rpt-header">
+  <div class="rpt-logo">Veeam Kasten <span>— Kopia Repository Sizing Report</span></div>
+  <div class="rpt-date">Generated on ${dateStr}<br>at ${timeStr}</div>
+</div>
+
+<div class="rpt-section">
+  <div class="rpt-section-title">Backup Policy</div>
+  <table class="rpt-policy-tbl">
+    <tr><td>Backup cadence</td><td>${cadenceMap[cadence]}</td></tr>
+    <tr><td>Change rate</td><td>${rateStr}</td></tr>
+    <tr><td>Retention policy</td><td>${retentionStr}</td></tr>
+    <tr><td>Immutability period</td><td>${immDays} days + 20 days (Kasten BLM) = ${immDays+20} days · L_imm = ${pol.L_imm} backup increments</td></tr>
+    <tr><td>Index overhead (m_index)</td><td>${(mindex*100).toFixed(2)}%</td></tr>
+    <tr><td>Compaction buffer (ε)</td><td>5% (fixed)</td></tr>
+    <tr><td>Operational headroom</td><td>${(pol.headroom*100).toFixed(0)}%</td></tr>
+    <tr><td>Storage cost</td><td>$${pol.cost_pgib} / GiB / month</td></tr>
+  </table>
+</div>
+
+<div class="rpt-section">
+  <div class="rpt-section-title">Per-Namespace Details (${active.length} namespace${active.length!==1?'s':''})</div>
+  ${nsSections}
+</div>
+
+<div class="rpt-section">
+  <div class="rpt-section-title">Summary &amp; Storage Composition</div>
+  <div class="rpt-summary">
+    <div class="rpt-sum-row"><span class="k">Namespaces included</span><span class="v">${active.length}</span></div>
+    <div class="rpt-sum-row"><span class="k">PVCs included / scanned</span><span class="v">${totalSelPvcs} / ${totalTotalPvcs}</span></div>
+    <div class="rpt-sum-row"><span class="k">Total PVC data (selected)</span><span class="v">${totalSelGib.toFixed(2)} GiB</span></div>
+    <div class="rpt-sum-row"><span class="k">Total repository size (S_repo)</span><span class="v">${fmtGib(totalSrepoGib)} GiB</span></div>
+    <div class="rpt-spacer"></div>
+    <div class="rpt-highlight">Recommended capacity: ${fmtGib(totalRecGib)} GiB / ${fmtTib(totalRecTib)} TiB</div>
+    <div class="rpt-sum-row"><span class="k">Estimated cost / month</span><span class="v">$${costMonth.toFixed(2)}</span></div>
+    <div class="rpt-sum-row"><span class="k">Estimated cost / year</span><span class="v">$${(costMonth*12).toFixed(2)}</span></div>
+  </div>
+  <br>
+  ${compBarHtml}
+</div>
+
+<div class="rpt-section" style="page-break-before:always">
+  <div class="rpt-section-title">Capacity Planning — Growth to Steady State</div>
+  ${capChartSvg}
+  <div class="rpt-chart-legend">${capLegendHtml}</div>
+</div>
+
+<div class="rpt-disclaimer">
+  <strong>IMPORTANT — Estimation only.</strong>
+  This report is provided for informational and planning purposes only. Results represent a directional estimate based on the
+  inputs supplied and standard Kopia repository modelling assumptions. They do not constitute a commitment, guarantee, warranty,
+  or contractual obligation of any kind by Veeam Software or any of its affiliates. Actual repository size and storage costs
+  may differ significantly depending on real workload characteristics, data change patterns, Kopia maintenance behaviour,
+  object storage provider specifics, and maintenance scheduling.
+  Compressibility and deduplication ratios use median values per workload type. ε = 0.05 (fixed).
+  Formula: S_repo ≈ κ × [P/DR + Δ×(N_eff−1+L_snap+L_imm)] × (1+m) × (1+ε).
+</div>
+<div class="print-bar">
+  <button onclick="window.print()">Print / Save as PDF</button>
+  <span class="hint">In the print dialog, choose "Save as PDF" as the destination.</span>
+</div>
+<script>
+// Auto-open print dialog after a short delay to let the page render fully.
+// Wrapped in setTimeout so it fires after browser layout is complete.
+setTimeout(function(){ window.print(); }, 600);
+<\/script>
+</body></html>`;
+
+  // Blob URL is the most reliable cross-browser approach:
+  // the browser treats it as a real page, scripts execute normally,
+  // and window.print() works in Chrome, Firefox and Safari.
+  try {
+    const blob = new Blob([fullHtml], { type: 'text/html; charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const win  = window.open(url, '_blank');
+    if (!win) throw new Error('popup blocked');
+    // Revoke the object URL after 5 minutes
+    setTimeout(() => URL.revokeObjectURL(url), 300_000);
+  } catch(e) {
+    alert('Pop-ups appear to be blocked. Please allow pop-ups for this page and try again.');
+  }
+}
+
+function buildCompBarHtml(bd) {
+  if (!bd || bd.recommended <= 0) return '';
+  const segs = [
+    {key:'base',    gib:bd.base_gib},
+    {key:'hist',    gib:bd.hist_gib},
+    {key:'meta',    gib:bd.meta_gib},
+    {key:'compact', gib:bd.compact_gib},
+    {key:'headroom',gib:bd.headroom_gib},
+  ];
+
+  // SVG bar — SVG fill is always rendered, unlike CSS background-color in print
+  const BW = 560, BH = 22;
+  let rects = '', cx = 0;
+  for (const s of segs) {
+    const w = s.gib / bd.recommended * BW;
+    if (w < 0.5) { cx += w; continue; }
+    rects += `<rect x="${cx.toFixed(2)}" y="0" width="${w.toFixed(2)}" height="${BH}" fill="${SEG_COLORS[s.key]}"/>`;
+    if (w >= 42) {
+      rects += `<text x="${(cx+w/2).toFixed(1)}" y="14" text-anchor="middle" font-size="7.5"
+        font-weight="700" fill="white" font-family="'Segoe UI',sans-serif">${fmtSeg(s.gib)}</text>`;
+    }
+    cx += w;
+  }
+
+  // Legend — inline SVG rect per item so color always renders
+  const legend = segs.map(s =>
+    `<div style="display:inline-flex;align-items:center;gap:4pt;font-size:7.5pt;color:#64748b;margin-right:12pt;">
+      <svg width="9" height="9" style="flex-shrink:0"><rect width="9" height="9" rx="2" fill="${SEG_COLORS[s.key]}"/></svg>
+      ${SEG_LABELS[s.key]}
+    </div>`
+  ).join('');
+
+  return `<div class="rpt-comp-wrap">
+    <div class="rpt-comp-lbl">Storage Composition</div>
+    <div class="rpt-comp-header"><span>Composition</span><span>${fmtSeg(bd.recommended)}</span></div>
+    <svg viewBox="0 0 ${BW} ${BH}" xmlns="http://www.w3.org/2000/svg"
+      style="display:block;width:100%;height:auto;border-radius:4pt;overflow:hidden;margin-bottom:6pt">
+      ${rects}
+    </svg>
+    <div style="display:flex;flex-wrap:wrap;gap:3pt 0;">${legend}</div>
+  </div>`;
+}
+
+function buildLegendHtml() {
+  // Use inline SVG rects so colors always render in print/popup contexts
+  const items = Object.entries(SEG_LABELS).map(([k,l]) =>
+    `<div class="rpt-chart-legend-item">
+      <svg width="10" height="10" style="flex-shrink:0"><rect width="10" height="10" rx="2" fill="${SEG_COLORS[k]}"/></svg>
+      ${l}
+    </div>`
+  ).join('');
+  return items +
+    `<div class="rpt-chart-legend-item">
+      <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+      S_repo (steady state)
+    </div>
+    <div class="rpt-chart-legend-item">
+      <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+      Recommended (with headroom)
+    </div>`;
+}
+
+// Boot
+(function(){
+  // Re-apply saved theme after DOM is ready (icons exist now)
+  const t = localStorage.getItem('sizingTheme')||'dark';
+  applyTheme(t);
+  calcManual(); // pre-warm Manual tab results even though Cluster Scan is default
+})();
+</script>
+</body>
+</html>

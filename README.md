@@ -39,24 +39,6 @@ A self-hosted web application that estimates the Kopia repository capacity requi
 
 ## 1. Overview
 
-The tool implements the sizing formula from the official **K10 / Kopia Repository Sizing Calculator** spreadsheet:
-
-```
-S_repo ≈ κ × [ P × (1/DR) + Δ × (N_eff − 1 + L_snap + L_imm) ] × (1 + m) × (1 + ε)
-```
-
-| Symbol | Meaning |
-|--------|---------|
-| `P` | Primary PVC data (GiB) — per namespace |
-| `κ = 1 − c` | Compression multiplier |
-| `DR` | Deduplication ratio |
-| `Δ = r × P / DR` | Per-snapshot delta |
-| `N_eff = MAX(1, N_raw − O)` | Effective retained snapshots after overlap deduction |
-| `L_snap = 2 × f` | GC catch-up buffer (2 full-maintenance cycles) |
-| `L_imm = (imm + 20) × f` | Immutability buffer (0 when immutability is disabled) |
-| `m = m_index + m_files` | Metadata overhead |
-| `ε` | Compaction churn buffer (fixed at 5%) |
-
 **Key features:**
 
 - **Manual Calculator** — size a single namespace by entering its total PVC capacity and policy parameters.
@@ -89,10 +71,24 @@ git clone https://github.com/<your-org>/kasten-sizing-tool.git
 cd kasten-sizing-tool
 ```
 
-### Docker Hub
+### Docker Hub (default)
+
+The default image used in `sizing-tool.yaml` is:
+
+```
+docker.io/cpouthier/kasten-toolbox:sizing-tool
+```
+
+To build and push it yourself:
 
 ```bash
-IMAGE=docker.io/myorg/kasten-sizing-tool ./build-push.sh latest
+IMAGE=docker.io/cpouthier/kasten-toolbox ./build-push.sh sizing-tool
+```
+
+To use a different Docker Hub account, replace `cpouthier` with your own username:
+
+```bash
+IMAGE=docker.io/<your-username>/kasten-sizing-tool ./build-push.sh latest
 ```
 
 ### GitHub Container Registry
@@ -137,10 +133,12 @@ docker build -t "${IMAGE}:${TAG}" .
 docker push "${IMAGE}:${TAG}"
 ```
 
-> After building, **update `sizing-tool.yaml`** to reference your image:
+> After building with an alternative registry, **update `sizing-tool.yaml`** to reference your image:
 > ```yaml
-> image: docker.io/myorg/kasten-sizing-tool:latest
+> image: docker.io/<your-username>/kasten-sizing-tool:latest
 > ```
+> The default `sizing-tool.yaml` already references `docker.io/cpouthier/kasten-toolbox:sizing-tool`
+> and can be applied directly without rebuilding.
 
 ---
 

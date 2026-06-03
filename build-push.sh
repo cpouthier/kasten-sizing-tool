@@ -18,6 +18,10 @@
 set -euo pipefail
 
 # ── Arguments ────────────────────────────────────────────────
+# Default image (Docker Hub): docker.io/cpouthier/kasten-toolbox
+# Default tag for that image : sizing-tool
+#
+# Override via env var or positional args to push to your own registry.
 TAG="${1:-latest}"
 IMAGE="${2:-${IMAGE:-}}"
 
